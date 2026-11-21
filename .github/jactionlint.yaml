@@ -29,3 +29,9 @@ ignores:
     file: .github/workflows/hexlet-check.yml
     reason: Hexlet owns the workflow and prohibits adding concurrency settings.
     expires: "2027-02-14"
+  # Approved 2026-11-21: the comment trigger is required by the OpenCode GitHub App flow;
+  # the job checks author_association and never checks out PR code.
+  - rule: dangerous-triggers
+    file: .github/workflows/opencode.yml
+    reason: Comment commands are the documented way to call the OpenCode GitHub App; the author check limits callers to collaborators.
+    expires: "2027-02-14"

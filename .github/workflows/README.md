@@ -39,3 +39,35 @@ Otherwise run Quality manually on the release branch before merging.
 
 The workflow becomes active after this configuration reaches `main`; a local
 configuration or a feature-branch push alone does not create a release PR.
+
+## OpenCode agent
+
+`opencode.yml` answers `/opencode <task>` on an issue or PR and `/oc <task>` in
+a PR review comment. The job checks `author_association`, so only owners,
+members and collaborators can start it; comments from everyone else are
+ignored. The agent reads the thread and can reply, push commits and open PRs
+through the OpenCode GitHub App.
+
+Setup:
+
+1. Install the [OpenCode GitHub App](https://github.com/apps/opencode-agent)
+   on this repository.
+2. Create the repository secret `OPENCODE_API_KEY` under **Settings → Secrets
+   and variables → Actions**. Issue it in OpenCode Console → Account →
+   Personal API keys with a fixed expiration; even free models need a key.
+3. Merge the workflow to `main`: GitHub only reads workflows from the default
+   branch.
+
+The `model` input is `opencode/big-pickle`, a free model, so the provider
+prefix matches `OPENCODE_API_KEY`. To use another provider, change both the
+model and the secret name (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.).
+
+The composite action is pinned to `github-v1.2.28`, the OpenCode 1 action
+linked from the Hexlet guide; it installs the OpenCode CLI and runs
+`opencode github run`. `id-token: write` lets it exchange the OIDC token for
+an app installation token used to comment and push changes, while
+`contents: read` is enough for checkout. The `dangerous-triggers` finding is
+accepted in `.github/jactionlint.yaml` until 2027-02-14 because the comment
+trigger is the documented way to call the GitHub App; the author check keeps
+the call limited to collaborators. The exception expires automatically —
+review it before that date.
