@@ -56,7 +56,7 @@ class IssueTriageTest(unittest.TestCase):
         }]]
 
         def classify(command, *, cwd, input, **kwargs):
-            self.assertEqual(command[1:4], ["run", "--agent", "triage"])
+            self.assertEqual(command[1:7], ["run", "--pure", "--dir", cwd, "--agent", "triage"])
             config = json.loads((Path(cwd) / "opencode.json").read_text(encoding="utf-8"))
             self.assertEqual(config["agent"]["triage"]["permission"], {"*": "deny"})
             self.assertIn("$(echo test)", input)

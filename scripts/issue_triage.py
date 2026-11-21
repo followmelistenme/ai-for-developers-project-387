@@ -135,7 +135,7 @@ def checked_result(result):
 
 def classify(temp):
     if not os.environ.get("OPENCODE_API_KEY"):
-        raise ValueError("OPENCODE_API_KEY is missing")
+        sys.exit("Set the OPENCODE_API_KEY Actions secret before running issue triage.")
     issue = (temp / "issue-triage-input.json").read_text(encoding="utf-8")
     with tempfile.TemporaryDirectory(dir=temp) as directory:
         config = {
@@ -146,8 +146,9 @@ def classify(temp):
         }
         (Path(directory) / "opencode.json").write_text(json.dumps(config), encoding="utf-8")
         run = subprocess.run(
-            [str(temp / "opencode"), "run", "--agent", "triage",
-             "--model", "opencode/big-pickle", "--format", "json"],
+            [str(temp / "opencode"), "run", "--pure", "--dir", directory,
+             "--agent", "triage", "--model", "opencode/big-pickle",
+             "--title", "GitHub issue triage", "--format", "json"],
             cwd=directory,
             input=f"{CLASSIFIER}\nIssue data:\n{issue}",
             text=True,
