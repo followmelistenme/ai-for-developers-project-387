@@ -1,0 +1,61 @@
+name: Issue triage
+
+on:
+  issues:
+    types: [opened]
+
+permissions: {}
+
+concurrency:
+  group: issue-triage-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    name: Triage new issue
+    if: >-
+      github.event.issue.user.type == 'User' &&
+      !contains(github.event.issue.labels.*.name, 'ready-for-agent') &&
+      !contains(github.event.issue.labels.*.name, 'ready-for-human') &&
+      !contains(github.event.issue.labels.*.name, 'needs-info') &&
+      !contains(github.event.issue.labels.*.name, 'wontfix')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Check current issue state
+        id: intake
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/issue_triage.py prepare
+
+      - name: Install pinned OpenCode CLI
+        if: steps.intake.outputs.eligible == 'true'
+        env:
+          OPENCODE_RELEASE: v1.19.6
+          OPENCODE_SHA256: 47734e08968b30cc22a0bffb6d9feeed76ad4aa743213a12122040392d09a057
+        run: |
+          archive="$RUNNER_TEMP/opencode-linux-x64.tar.gz"
+          curl --fail --silent --show-error --location --max-time 60 --output "$archive" \
+            "https://github.com/anomalyco/opencode/releases/download/$OPENCODE_RELEASE/opencode-linux-x64.tar.gz"
+          printf '%s  %s\n' "$OPENCODE_SHA256" "$archive" | sha256sum --check
+          tar -xzf "$archive" -C "$RUNNER_TEMP" opencode
+
+      - name: Classify issue without tools
+        if: steps.intake.outputs.eligible == 'true'
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: python3 scripts/issue_triage.py classify
+
+      - name: Post triage comment if still eligible
+        if: steps.intake.outputs.eligible == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/issue_triage.py publish

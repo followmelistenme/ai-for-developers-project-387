@@ -27,6 +27,9 @@ local fast = new Mapping<String, Step> {
 }
 
 local complete = (fast) {
+  ["issue-triage-test"] {
+    check = "python3 -B -m unittest discover -s scripts"
+  }
   ["api-generation"] {
     check = "bash scripts/generate-api.sh --check"
   }
