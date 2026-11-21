@@ -108,10 +108,7 @@ export default function App() {
           <Brand />
           <nav className="header-nav" aria-label="Главная навигация">
             <a className="owner-link" href="/owner" aria-current={isOwnerPage ? "page" : undefined}>Для владельца</a>
-            {!isBookingPage && !isOwnerPage && (<>
-              <a className="how-link" href="#how-it-works">Как это работает</a>
-              <BookingLink />
-            </>)}
+            {!isBookingPage && !isOwnerPage && <BookingLink />}
           </nav>
         </div>
       </header>
