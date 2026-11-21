@@ -1,0 +1,60 @@
+name: Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '23 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Quality gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository and full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install pinned toolchain
+        uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          version: 2026.11.8
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+      - name: Install pinned API generator dependencies
+        run: npm --prefix api ci
+      - name: Install Chromium and system dependencies
+        run: npm --prefix frontend run test:install -- --with-deps
+      - name: Run every quality gate
+        run: mise run check
+
+  docker:
+    name: Container acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install pinned toolchain
+        uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          version: 2026.11.8
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+      - name: Install Chromium and system dependencies
+        run: npm --prefix frontend run test:install -- --with-deps
+      - name: Build containers and verify browser booking and restart
+        run: mise run docker-check

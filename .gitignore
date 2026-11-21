@@ -1,0 +1,7 @@
+node_modules/
+.venv/
+frontend/dist/
+frontend/test-results/
+*.tsbuildinfo
+*.local
+.env

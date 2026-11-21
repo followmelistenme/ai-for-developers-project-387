@@ -1,0 +1,20 @@
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    # Docker DNS must be consulted again after the API container is replaced.
+    resolver 127.0.0.11 valid=5s ipv6=off;
+    set $api_target "${API_TARGET}";
+
+    location ~ ^/(api(?:/|$)|docs$|openapi\.(?:json|yaml)$) {
+        proxy_pass $api_target$request_uri;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

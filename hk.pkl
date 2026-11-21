@@ -1,0 +1,90 @@
+amends "package://github.com/jdx/hk/releases/download/v2.12.0/hk@2.12.0#/Config.pkl"
+
+local formatting = new Step {
+  dir = "backend"
+  glob = List("**/*.go")
+  check_diff = "golangci-lint fmt --diff {{files}}"
+  fix = "golangci-lint fmt {{files}}"
+}
+
+local fast = new Mapping<String, Step> {
+  ["go-format"] = formatting
+  ["frontend-lint"] {
+    glob = List("frontend/**/*.{ts,tsx,js,jsx,mjs,cjs}", "frontend/tsconfig*.json", "frontend/package{,-lock}.json")
+    check = "npm --prefix frontend run lint"
+  }
+  ["secrets"] {
+    check = "betterleaks git --staged --redact --exit-code 1"
+  }
+  ["workflows"] {
+    glob = List(".github/workflows/**.{yml,yaml}", ".github/dependabot.{yml,yaml}", ".github/jactionlint.{yml,yaml}")
+    check = "jactionlint --strict-exit"
+  }
+  ["agents"] {
+    glob = List("**/AGENTS.md", "**/CLAUDE.md", "**/SKILL.md", ".agnix.toml")
+    check = "agnix --strict ."
+  }
+}
+
+local complete = (fast) {
+  ["api-generation"] {
+    check = "bash scripts/generate-api.sh --check"
+  }
+  ["frontend-test"] {
+    // Playwright builds and typechecks the app before starting the preview server.
+    check = "npm --prefix frontend test"
+  }
+  ["secrets"] {
+    check = "betterleaks dir . --redact --exit-code 1"
+  }
+  ["secret-history"] {
+    check = "betterleaks git . --redact --exit-code 1"
+  }
+  ["go-config"] {
+    dir = "backend"
+    check = "golangci-lint config verify"
+  }
+  ["go-lint"] {
+    dir = "backend"
+    glob = List("**/*.go")
+    check = "golangci-lint run"
+  }
+  ["go-test"] {
+    dir = "backend"
+    glob = List("**/*.go")
+    check = "go test -race ./..."
+  }
+  ["go-modules"] {
+    dir = "backend"
+    check = "go mod tidy -diff"
+  }
+  ["go-vulnerabilities"] {
+    dir = "backend"
+    glob = List("**/*.go")
+    // Text mode exits nonzero for reachable vulnerabilities; JSON mode does not.
+    check = "govulncheck ./..."
+  }
+}
+
+hooks {
+  ["pre-commit"] {
+    fix = false
+    stage = false
+    stash = "git"
+    steps = fast
+  }
+  ["pre-push"] {
+    steps {
+      // The aggregate task selects all files, regardless of the pushed range.
+      ["project"] { check = "mise run check" }
+    }
+  }
+  ["check"] {
+    steps = complete
+  }
+  ["fix"] {
+    steps {
+      ["go-format"] = formatting
+    }
+  }
+}

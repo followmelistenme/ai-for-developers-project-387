@@ -1,0 +1,440 @@
+openapi: 3.0.3
+info:
+  title: Календарь звонков
+  version: 0.1.0
+  description: "Типы встреч одного владельца календаря: создание, публикация, окончательное снятие публикации и удаление без встреч, гостевой каталог, свободные слоты и подтверждение встречи. Авторизации нет."
+paths:
+  /api/owner/meeting-types:
+    get:
+      operationId: listOwnerMeetingTypes
+      summary: Список типов встреч владельца
+      description: Возвращает сохранённые типы встреч, включая черновики. Новый процесс начинает с пустого списка.
+      responses:
+        "200":
+          description: Список типов встреч
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingTypeList"
+    post:
+      operationId: createOwnerMeetingType
+      summary: Создать черновик типа встречи
+      description: Сохраняет новый черновик. Одинаковые названия разрешены. Черновики недоступны в гостевом интерфейсе.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMeetingType"
+      responses:
+        "201":
+          description: Черновик создан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingType"
+        "400":
+          description: Некорректный запрос; данные не сохранены
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+  /api/owner/meeting-types/{meetingTypeId}:
+    parameters:
+      - $ref: "#/components/parameters/MeetingTypeId"
+    delete:
+      operationId: deleteOwnerMeetingType
+      summary: Удалить тип встречи без встреч
+      description: Окончательно удаляет тип в любом состоянии только при отсутствии любых встреч, включая прошедшие. Проверка и удаление атомарны с подтверждением. Старые ссылки получают 404; одноимённый новый тип имеет отдельный ID. Тело запроса не требуется.
+      responses:
+        "204":
+          description: Тип удалён; тело ответа отсутствует
+        "404":
+          $ref: "#/components/responses/MeetingTypeNotFound"
+        "409":
+          description: Есть хотя бы одна встреча; тип и все встречи сохранены. Опубликованный тип можно снять с публикации.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingTypeDeletionConflict"
+  /api/owner/meeting-types/{meetingTypeId}/publish:
+    parameters:
+      - $ref: "#/components/parameters/MeetingTypeId"
+    post:
+      operationId: publishOwnerMeetingType
+      summary: Опубликовать тип встречи
+      description: Публикует черновик без изменения его данных. Повтор возвращает тот же опубликованный тип без дублирования. Снятый с публикации тип опубликовать повторно нельзя (409). Тело запроса не требуется.
+      responses:
+        "200":
+          description: Опубликованный тип встречи
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingType"
+        "404":
+          $ref: "#/components/responses/MeetingTypeNotFound"
+        "409":
+          $ref: "#/components/responses/InvalidTypeTransition"
+  /api/owner/meeting-types/{meetingTypeId}/withdraw:
+    parameters:
+      - $ref: "#/components/parameters/MeetingTypeId"
+    post:
+      operationId: withdrawOwnerMeetingType
+      summary: Окончательно снять публикацию типа встречи
+      description: Опубликованный тип переходит в withdrawn, повтор возвращает тот же тип. Черновик снять нельзя (409). Переход окончательный, встречи и общая занятость сохраняются. Снятие атомарно с подтверждением новой встречи. Тело запроса не требуется.
+      responses:
+        "200":
+          description: Снятый с публикации тип встречи
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingType"
+        "404":
+          $ref: "#/components/responses/MeetingTypeNotFound"
+        "409":
+          $ref: "#/components/responses/InvalidTypeTransition"
+  /api/meeting-types:
+    get:
+      operationId: listPublishedMeetingTypes
+      summary: Каталог опубликованных типов встреч
+      description: Возвращает только опубликованные типы в порядке создания. Черновики недоступны гостям.
+      responses:
+        "200":
+          description: Опубликованные типы встреч; пустой список, если публикаций нет
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingTypeList"
+  /api/meeting-types/{meetingTypeId}:
+    parameters:
+      - $ref: "#/components/parameters/MeetingTypeId"
+    get:
+      operationId: getPublishedMeetingType
+      summary: Опубликованный тип встречи по отдельной ссылке
+      description: Возвращает опубликованный тип по уникальному идентификатору, независимо от его названия. Черновики и неизвестные идентификаторы недоступны.
+      responses:
+        "200":
+          description: Опубликованный тип встречи
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingType"
+        "410":
+          $ref: "#/components/responses/BookingClosed"
+        "404":
+          $ref: "#/components/responses/MeetingTypeNotFound"
+  /api/meeting-types/{meetingTypeId}/slots:
+    parameters:
+      - $ref: "#/components/parameters/MeetingTypeId"
+    get:
+      operationId: listAvailableSlots
+      summary: Свободные слоты опубликованного типа
+      description: Окно по Europe/Moscow от завтра до сегодня + 14 дней включительно. Рабочие часы 09:00–18:00, шаг стартов 30 минут. Выбор не резервирует время.
+      parameters:
+        - name: date
+          in: query
+          required: false
+          description: Календарная дата по Москве, YYYY-MM-DD. Без параметра выбирается первый день текущего окна.
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Актуальное окно записи и интервалы для выбранной даты
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailableSlots"
+        "400":
+          description: Некорректная дата или дата вне текущего окна записи
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+        "410":
+          $ref: "#/components/responses/BookingClosed"
+        "404":
+          $ref: "#/components/responses/MeetingTypeNotFound"
+  /api/owner/meetings:
+    get:
+      operationId: listOwnerMeetings
+      summary: Предстоящие встречи владельца
+      description: Все типы, включая уже начавшиеся встречи, пока end больше текущего времени. Порядок по началу от ближайших. Контакты доступны только здесь и в результате подтверждения; авторизации нет.
+      responses:
+        "200":
+          description: Предстоящие и продолжающиеся встречи, пустой массив при отсутствии
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingList"
+  /api/meeting-types/{meetingTypeId}/meetings:
+    parameters:
+      - $ref: "#/components/parameters/MeetingTypeId"
+    post:
+      operationId: confirmMeeting
+      summary: Подтвердить запись на звонок
+      description: Атомарно проверяет опубликованный тип, московское окно, рабочие часы, сетку и отсутствие пересечений для всех типов. Длительность и окончание определяются сервером. Выбор слота не резервирует время. Успешная попытка связывает attemptId с типом, моментом начала и обрезанными по краям именем/email (регистр email сохраняется). Точный повтор возвращает исходную встречу до перезапуска, даже после снятия публикации, окончания встречи и выхода даты из окна. Проверка сохранённой попытки предшествует проверке публикации; новая попытка после снятия получает 410. Несовпадение данных сохранённой попытки возвращает 400 fields.attemptId без сведений о встрече. Проверка попытки и сохранение атомарны; неуспешные ответы не запоминаются.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmMeeting"
+      responses:
+        "201":
+          description: Встреча создана или возвращена исходная встреча успешной попытки; сохраните сведения самостоятельно, писем и напоминаний нет
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meeting"
+        "400":
+          description: Некорректный attemptId, контакты или начало; либо attemptId успешной попытки использован с другими данными (fields.attemptId). Новая встреча не создана, сведения прежней не возвращаются
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+        "410":
+          $ref: "#/components/responses/BookingClosed"
+        "404":
+          $ref: "#/components/responses/MeetingTypeNotFound"
+        "409":
+          description: Интервал уже занят; актуальные свободные слоты выбранной московской даты без сведений о других гостях
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingConflict"
+components:
+  parameters:
+    MeetingTypeId:
+      name: meetingTypeId
+      in: path
+      required: true
+      description: Уникальный идентификатор типа встречи.
+      schema:
+        type: string
+        minLength: 1
+  responses:
+    BookingClosed:
+      description: Запись на этот тип встречи окончательно закрыта; без сведений о гостях
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/BookingClosedError"
+    InvalidTypeTransition:
+      description: Переход состояния типа встречи запрещён
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/MeetingTypeNotFoundError"
+    MeetingTypeNotFound:
+      description: Тип встречи не найден или недоступен гостю
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/MeetingTypeNotFoundError"
+  schemas:
+    MeetingTypeDeletionConflict:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message:
+          type: string
+          enum: ["Нельзя удалить тип встречи, по которому есть встречи"]
+          description: Любая встреча, включая прошедшую, запрещает удаление типа.
+    BookingClosedError:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message:
+          type: string
+          enum: [Запись на этот тип встречи закрыта]
+          description: Окончательное закрытие новых бронирований по прежней ссылке.
+    ConfirmMeeting:
+      type: object
+      additionalProperties: false
+      required: [attemptId, start, guestName, guestEmail]
+      properties:
+        attemptId:
+          type: string
+          format: uuid
+          pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+          description: UUID отдельной попытки. Повторы передают те же данные и UUID; новая попытка после определённого отказа получает новый UUID. Успешные попытки хранятся в памяти до перезапуска без TTL; ошибки не связывают UUID.
+        start:
+          type: string
+          format: date-time
+          description: Начало выбранного слота в RFC 3339; проверяется по Europe/Moscow.
+        guestName:
+          type: string
+          description: Обязательное имя, 1–100 символов Unicode после обрезки пробелов по краям.
+        guestEmail:
+          type: string
+          description: Обязательный адрес email корректного формата, до 254 символов после обрезки пробелов по краям. Подтверждение письмом не выполняется.
+    Meeting:
+      type: object
+      additionalProperties: false
+      required: [id, meetingType, date, start, end, guestName, guestEmail, callUrl]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          description: Уникальный идентификатор созданной встречи.
+        meetingType:
+          $ref: "#/components/schemas/MeetingType"
+        date:
+          type: string
+          format: date
+          description: Календарная дата встречи по Europe/Moscow.
+        start:
+          type: string
+          format: date-time
+          description: Начало включительно, RFC 3339 по Москве.
+        end:
+          type: string
+          format: date-time
+          description: Окончание исключительно, рассчитано из длительности типа, RFC 3339 по Москве.
+        guestName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Имя гостя с обрезанными пробелами по краям.
+        guestEmail:
+          type: string
+          maxLength: 254
+          description: Email гостя с обрезанными пробелами по краям.
+        callUrl:
+          type: string
+          description: Демонстрационная ссылка http://localhost/event/{event_id}, идентификатор встречи. Реальная видеосвязь и страница ссылки не реализуются.
+    MeetingList:
+      type: array
+      description: Встречи с end больше текущего времени, по возрастанию start.
+      items:
+        $ref: "#/components/schemas/Meeting"
+    BookingConflict:
+      type: object
+      additionalProperties: false
+      required: [message, availability]
+      properties:
+        message:
+          type: string
+          description: Сообщение о занятом интервале.
+        availability:
+          $ref: "#/components/schemas/AvailableSlots"
+    AvailableSlot:
+      type: object
+      additionalProperties: false
+      required: [start, end]
+      description: Свободный интервал; выбор не создаёт встречу.
+      properties:
+        start:
+          type: string
+          format: date-time
+          description: Начало включительно, RFC 3339.
+        end:
+          type: string
+          format: date-time
+          description: Окончание исключительно, RFC 3339.
+    AvailableSlots:
+      type: object
+      additionalProperties: false
+      required: [serverTime, nextWindowUpdate, timeZone, windowStart, windowEnd, selectedDate, slots]
+      properties:
+        nextWindowUpdate:
+          type: string
+          format: date-time
+          description: Точный момент следующего сдвига окна — ближайшая московская полночь.
+        serverTime:
+          type: string
+          format: date-time
+          description: Текущее время, захваченное один раз для этого ответа.
+        timeZone:
+          type: string
+          enum: [Europe/Moscow]
+          description: Часовой пояс календаря; не зависит от окружения сервера или браузера.
+        windowStart:
+          type: string
+          format: date
+          description: Первый день окна включительно по Москве.
+        windowEnd:
+          type: string
+          format: date
+          description: Последний день окна включительно по Москве.
+        selectedDate:
+          type: string
+          format: date
+          description: Выбранная календарная дата по Москве.
+        slots:
+          type: array
+          description: Интервалы в порядке начала; пустой список при отсутствии свободного времени.
+          items:
+            $ref: "#/components/schemas/AvailableSlot"
+    MeetingTypeNotFoundError:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: Сообщение о недоступном типе встречи.
+
+    CreateMeetingType:
+      type: object
+      additionalProperties: false
+      required: [name, durationMinutes]
+      properties:
+        name:
+          type: string
+          description: Название; после обрезки пробелов по краям от 1 до 100 символов Unicode.
+        description:
+          type: string
+          maxLength: 500
+          description: Необязательное описание обычным текстом, до 500 символов Unicode. Разметка не интерпретируется.
+        durationMinutes:
+          type: integer
+          enum: [15, 30, 45, 60]
+          description: Длительность встречи в минутах.
+    MeetingType:
+      type: object
+      additionalProperties: false
+      required: [id, name, description, durationMinutes, status]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          description: Уникальный идентификатор, назначенный сервером.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Название с обрезанными пробелами по краям.
+        description:
+          type: string
+          maxLength: 500
+          description: Обычный текст; пустая строка, если описание не задано.
+        durationMinutes:
+          type: integer
+          enum: [15, 30, 45, 60]
+          description: Длительность встречи в минутах.
+        status:
+          type: string
+          enum: [draft, published, withdrawn]
+          description: Черновик недоступен гостям; опубликованный тип доступен в каталоге; withdrawn окончательно закрыт без повторной публикации.
+    MeetingTypeList:
+      type: array
+      description: Типы встреч в порядке создания.
+      items:
+        $ref: "#/components/schemas/MeetingType"
+    ValidationError:
+      type: object
+      required: [message, fields]
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+          description: Общее сообщение об ошибке.
+        fields:
+          type: object
+          description: Сообщения по полям name, description, durationMinutes, date, start, guestName, guestEmail; body для ошибки всего запроса.
+          additionalProperties:
+            type: string

@@ -1,0 +1,45 @@
+min_version = "2026.11.8"
+
+[tools]
+node = "22.22.2"
+go = "1.27.4"
+"aqua:golangci/golangci-lint" = "2.15.0"
+"aqua:jdx/hk" = "2.12.0"
+"aqua:jdx/jactionlint" = "2.5.0"
+"aqua:koalaman/shellcheck" = "0.11.0"
+"aqua:betterleaks/betterleaks" = "1.10.1"
+"github:agent-sh/agnix" = "0.61.0"
+"go:golang.org/x/vuln/cmd/govulncheck" = "1.9.0"
+
+[env]
+# Fail rather than silently download a different Go toolchain than the pinned one.
+GOTOOLCHAIN = "local"
+
+[tasks.check]
+description = "Run every quality gate (also used by CI)"
+run = "hk check --all"
+
+[tasks.fix]
+description = "Apply safe Go formatting fixes"
+run = "hk fix --all"
+
+[tasks.hooks]
+description = "Install repository-local Git hooks using mise"
+run = "hk install --mise"
+
+[tasks.generate]
+description = "Generate Go and TypeScript from the OpenAPI contract"
+run = "bash scripts/generate-api.sh"
+
+[tasks.api-check]
+description = "Check committed OpenAPI generation without changing files"
+run = "bash scripts/generate-api.sh --check"
+
+[tasks.backend]
+description = "Run the in-memory calendar API"
+dir = "backend"
+run = "go run ./cmd/server"
+
+[tasks.docker-check]
+description = "Build fresh containers and verify browser booking and restart cleanup"
+run = "bash scripts/docker-check.sh"

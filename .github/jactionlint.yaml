@@ -1,0 +1,31 @@
+# Check generated workflows too; Hexlet's existing findings need explicit review.
+profile: default
+generated-files: report
+
+# Approved 2026-11-14: Hexlet owns this generated file and forbids local edits.
+# Each exception expires automatically; new files and rules stay enforced.
+ignores:
+  - rule: unpinned-uses
+    file: .github/workflows/hexlet-check.yml
+    uses: actions/checkout@v7
+    reason: Hexlet generates this checkout reference and prohibits editing it.
+    expires: "2027-02-14"
+  - rule: unpinned-uses
+    file: .github/workflows/hexlet-check.yml
+    uses: hexlet/project-action@release
+    reason: Hexlet owns the release reference and prohibits editing its workflow.
+    expires: "2027-02-14"
+  - rule: missing-permissions
+    file: .github/workflows/hexlet-check.yml
+    job: build
+    reason: Hexlet generates this job and prohibits adding permission settings.
+    expires: "2027-02-14"
+  - rule: missing-timeout
+    file: .github/workflows/hexlet-check.yml
+    job: build
+    reason: Hexlet generates this job and prohibits adding a timeout.
+    expires: "2027-02-14"
+  - rule: concurrency-limits
+    file: .github/workflows/hexlet-check.yml
+    reason: Hexlet owns the workflow and prohibits adding concurrency settings.
+    expires: "2027-02-14"
