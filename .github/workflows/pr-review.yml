@@ -1,0 +1,76 @@
+name: PR review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+concurrency:
+  group: pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Review pull request
+    if: >-
+      !github.event.pull_request.draft &&
+      github.actor != 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.base.ref == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out trusted base
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - name: Prepare diff and review criteria
+        id: context
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ -f REVIEW.md && -f scripts/pr_review.py && -f scripts/pr_review_budget.py ]]; then
+            python3 scripts/pr_review.py prepare
+          else
+            echo 'The base branch does not have the PR review workflow files yet.'
+          fi
+
+      - name: Reserve a review attempt
+        id: budget
+        if: steps.context.outputs.eligible == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_REVIEW_MAX_RUNS: '3'
+        run: python3 scripts/pr_review_budget.py
+
+      - name: Install pinned OpenCode CLI
+        if: steps.budget.outputs.allowed == 'true'
+        env:
+          OPENCODE_RELEASE: v1.19.6
+          OPENCODE_SHA256: 47734e08968b30cc22a0bffb6d9feeed76ad4aa743213a12122040392d09a057
+        run: |
+          archive="$RUNNER_TEMP/opencode-linux-x64.tar.gz"
+          curl --fail --silent --show-error --location --max-time 75 --output "$archive" \
+            "https://github.com/anomalyco/opencode/releases/download/$OPENCODE_RELEASE/opencode-linux-x64.tar.gz"
+          printf '%s  %s\n' "$OPENCODE_SHA256" "$archive" | sha256sum --check
+          tar -xzf "$archive" -C "$RUNNER_TEMP" opencode
+
+      - name: Review diff without tools
+        if: steps.budget.outputs.allowed == 'true'
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: python3 scripts/pr_review.py review
+
+      - name: Update review comment for the current revision
+        if: ${{ !cancelled() && steps.budget.outputs.allowed == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_REVIEW_COMMENT_ID: ${{ steps.budget.outputs.comment_id }}
+          PR_REVIEW_ATTEMPT: ${{ steps.budget.outputs.attempt }}
+        run: python3 scripts/pr_review.py publish
