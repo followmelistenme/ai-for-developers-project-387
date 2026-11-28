@@ -1,0 +1,94 @@
+name: App monitor
+
+on:
+  schedule:
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+    inputs:
+      publish_issues:
+        description: Publish confirmed new findings to GitHub Issues
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: app-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    name: Check public application
+    if: github.event_name == 'schedule' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Set monitoring output directory
+        run: printf 'MONITOR_DIR=%s/app-monitor\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Collect public endpoint results
+        id: collect
+        env:
+          APP_URL: ${{ vars.APP_URL || 'https://booking-calendar-386-w289.onrender.com' }}
+        run: python3 scripts/app_monitor.py collect
+
+      - name: Find existing issues and local tickets
+        id: prepare
+        if: steps.collect.outputs.findings == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/app_monitor.py prepare
+
+      - name: Install pinned OpenCode CLI
+        if: steps.prepare.outputs.classify == 'true'
+        env:
+          OPENCODE_RELEASE: v1.19.6
+          OPENCODE_SHA256: 47734e08968b30cc22a0bffb6d9feeed76ad4aa743213a12122040392d09a057
+        run: |
+          archive="$RUNNER_TEMP/opencode-linux-x64.tar.gz"
+          curl --fail --silent --show-error --location --max-time 45 --output "$archive" \
+            "https://github.com/anomalyco/opencode/releases/download/$OPENCODE_RELEASE/opencode-linux-x64.tar.gz"
+          printf '%s  %s\n' "$OPENCODE_SHA256" "$archive" | sha256sum --check
+          tar -xzf "$archive" -C "$RUNNER_TEMP" opencode
+
+      - name: Compare findings with existing tasks without tools
+        if: steps.prepare.outputs.classify == 'true'
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: python3 scripts/app_monitor.py classify
+
+      - name: Record decision and publish confirmed new findings
+        if: steps.prepare.outputs.classify == 'true'
+        env:
+          GH_TOKEN: ${{ (github.event_name == 'schedule' || inputs.publish_issues) && github.token || '' }}
+          PUBLISH_ISSUES: ${{ github.event_name == 'schedule' || inputs.publish_issues }}
+        run: python3 scripts/app_monitor.py publish
+
+      - name: Write report and job summary
+        if: ${{ !cancelled() }}
+        env:
+          MONITOR_JOB_STATUS: ${{ job.status }}
+        run: |
+          if [[ -f scripts/app_monitor.py ]]; then
+            python3 scripts/app_monitor.py summarize
+          else
+            mkdir -p "$MONITOR_DIR"
+            printf '# Проверка приложения\n\nНе удалось получить код репозитория.\n' > "$MONITOR_DIR/report.md"
+            cat "$MONITOR_DIR/report.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload monitoring report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-monitor-report
+          path: ${{ env.MONITOR_DIR }}/report.md
+          if-no-files-found: error
