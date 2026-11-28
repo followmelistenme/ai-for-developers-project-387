@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0](https://github.com/followmelistenme/ai-for-developers-project-387/compare/v0.1.0...v0.2.0) (2026-11-28)
+
+
+### Features
+
+* Limit published meeting types ([4b1240f](https://github.com/followmelistenme/ai-for-developers-project-387/commit/4b1240f7aac9e4e32b4eae62b336e373a161dd75))
+* Limit published meeting types ([349e56b](https://github.com/followmelistenme/ai-for-developers-project-387/commit/349e56b6c4611323acadc7dc23faa469c7ab5df3))
+
 ## 0.1.0 (2026-11-28)
 
 
