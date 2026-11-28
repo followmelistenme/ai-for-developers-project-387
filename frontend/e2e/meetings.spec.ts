@@ -158,7 +158,7 @@ test("потерянный ответ восстанавливает исход�
   expect(await (await request.get("/api/owner/meetings")).json()).toEqual(meetings)
 })
 
-test("проверка контактов и подтверждение доступны на компьютере и телефоне без переполнения", async ({ page, request }) => {
+test("проверка контактов и подтверждение доступны на компьютере и телефоне без переполнения", async ({ page, request }, testInfo) => {
   const type = await (await request.post("/api/owner/meeting-types", { data: { name: "Обсудим вашу следующую идею", durationMinutes: 45 } })).json() as { id: string }
   await request.post(`/api/owner/meeting-types/${type.id}/publish`)
   const attempts: string[] = []
@@ -184,18 +184,18 @@ test("проверка контактов и подтверждение дост
     await page.getByLabel("Email", { exact: true }).fill("alexandra.petrova@example.com")
     await expect(page.getByLabel("Ваше имя", { exact: true })).toHaveAttribute("aria-invalid", "false")
     await expect(page.getByLabel("Email", { exact: true })).toHaveAttribute("aria-invalid", "false")
-    await page.screenshot({ path: `/private/tmp/booking04-form-${width}.png`, fullPage: true })
+    await page.screenshot({ path: testInfo.outputPath(`booking04-form-${width}.png`), fullPage: true })
     expect(await page.evaluate("document.documentElement.scrollWidth > window.innerWidth")).toBe(false)
     await page.getByRole("button", { name: "Подтвердить запись", exact: true }).click()
     await expect(page.getByRole("heading", { name: "Вы записаны на звонок" })).toBeVisible()
     expect(await page.evaluate("document.documentElement.scrollWidth > window.innerWidth")).toBe(false)
-    await page.screenshot({ path: `/private/tmp/booking04-confirmation-${width}.png`, fullPage: true })
+    await page.screenshot({ path: testInfo.outputPath(`booking04-confirmation-${width}.png`), fullPage: true })
     expect(attempts.at(-1)).not.toBe(attempts.at(-2))
     await page.goto("/owner")
     const list = page.getByRole("region", { name: "Предстоящие встречи" })
     await expect(list.getByRole("article")).toHaveCount(width === 1280 ? 1 : width === 390 ? 2 : 3)
     expect(await page.evaluate("document.documentElement.scrollWidth > window.innerWidth")).toBe(false)
-    await page.screenshot({ path: `/private/tmp/booking04-owner-${width}.png`, fullPage: true })
+    await page.screenshot({ path: testInfo.outputPath(`booking04-owner-${width}.png`), fullPage: true })
   }
 })
 
@@ -218,7 +218,7 @@ test("список владельца обновляется при возвра
   await expect(list.getByRole("article")).toHaveCount(2)
 })
 
-test("повтор до доставки и повторный отказ сети сохраняют неизменную попытку, контакты и блокировку", async ({ page, request }) => {
+test("повтор до доставки и повторный отказ сети сохраняют неизменную попытку, контакты и блокировку", async ({ page, request }, testInfo) => {
   const type = await (await request.post("/api/owner/meeting-types", { data: { name: "Безопасный повтор", durationMinutes: 30 } })).json() as { id: string }
   await request.post(`/api/owner/meeting-types/${type.id}/publish`)
   const available = await (await request.get(`/api/meeting-types/${type.id}/slots`)).json() as Record<string, unknown>
@@ -252,7 +252,7 @@ test("повтор до доставки и повторный отказ сет
   for (const width of [1280, 390, 320]) {
     await page.setViewportSize({ width, height: 900 })
     expect(await page.evaluate("document.documentElement.scrollWidth > window.innerWidth")).toBe(false)
-    await page.screenshot({ path: `/private/tmp/booking05-unknown-${width}.png`, fullPage: true })
+    await page.screenshot({ path: testInfo.outputPath(`booking05-unknown-${width}.png`), fullPage: true })
   }
   await page.getByRole("button", { name: "Повторить подтверждение", exact: true }).click()
   await expect(page.getByRole("heading", { name: "Вы записаны на звонок" })).toBeVisible()

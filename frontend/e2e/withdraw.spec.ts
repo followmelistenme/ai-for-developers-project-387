@@ -1,6 +1,6 @@
 import { expect, test } from "./fixtures"
 
-test("владелец окончательно снимает публикацию, старые ссылки закрыты и новый одноимённый тип независим", async ({ page, request }) => {
+test("владелец окончательно снимает публикацию, старые ссылки закрыты и новый одноимённый тип независим", async ({ page, request }, testInfo) => {
   const created = await request.post("/api/owner/meeting-types", { data: { name: "Знакомство", durationMinutes: 45 } })
   const type = await created.json() as { id: string }
   await request.post(`/api/owner/meeting-types/${type.id}/publish`)
@@ -19,7 +19,7 @@ test("владелец окончательно снимает публикац�
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 })
     await expect.poll(() => page.locator("html").evaluate((el: { scrollWidth: number }) => el.scrollWidth)).toBeLessThanOrEqual(width)
-    await page.screenshot({ path: `/private/tmp/withdraw-owner-${width}.png`, fullPage: true })
+    await page.screenshot({ path: testInfo.outputPath(`withdraw-owner-${width}.png`), fullPage: true })
   }
   await page.goto("/booking")
   await expect(page.getByRole("article")).toHaveCount(0)
@@ -38,12 +38,12 @@ test("владелец окончательно снимает публикац�
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 })
     await expect.poll(() => page.locator("html").evaluate((el: { scrollWidth: number }) => el.scrollWidth)).toBeLessThanOrEqual(width)
-    await page.screenshot({ path: `/private/tmp/withdraw-guest-${width}.png`, fullPage: true })
+    await page.screenshot({ path: testInfo.outputPath(`withdraw-guest-${width}.png`), fullPage: true })
   }
 })
 
 for (const action of ["confirm", "refresh"] as const) {
-  test(`старый выбранный интервал закрывается при ${action} без новой встречи и сохраняет общую занятость`, async ({ page, request }) => {
+  test(`старый выбранный интервал закрывается при ${action} без новой встречи и сохраняет общую занятость`, async ({ page, request }, testInfo) => {
     const type = await (await request.post("/api/owner/meeting-types", { data: { name: "Закрываемый тип", durationMinutes: 45 } })).json() as { id: string }
     const other = await (await request.post("/api/owner/meeting-types", { data: { name: "Другой тип", durationMinutes: 15 } })).json() as { id: string }
     for (const item of [type, other]) await request.post(`/api/owner/meeting-types/${item.id}/publish`)
@@ -65,7 +65,7 @@ for (const action of ["confirm", "refresh"] as const) {
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 844 })
       await expect.poll(() => page.locator("html").evaluate((el: { scrollWidth: number }) => el.scrollWidth)).toBeLessThanOrEqual(width)
-      await page.screenshot({ path: `/private/tmp/withdraw-stale-${action}-${width}.png`, fullPage: true })
+      await page.screenshot({ path: testInfo.outputPath(`withdraw-stale-${action}-${width}.png`), fullPage: true })
     }
     const meetings = await (await request.get("/api/owner/meetings")).json() as { id: string }[]
     expect(meetings.map((item) => item.id)).toEqual([meeting.id])

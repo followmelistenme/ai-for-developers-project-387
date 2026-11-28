@@ -1,6 +1,6 @@
 import { expect, test } from "./fixtures"
 
-test("владелец удаляет тип в любом состоянии, старые ссылки не заменяются одноимённым типом", async ({ page, request }) => {
+test("владелец удаляет тип в любом состоянии, старые ссылки не заменяются одноимённым типом", async ({ page, request }, testInfo) => {
   const ids: string[] = []
   for (const [name, state] of [["Черновик", "draft"], ["Опубликованный", "published"], ["Закрытый", "withdrawn"]]) {
     const type = await (await request.post("/api/owner/meeting-types", { data: { name, durationMinutes: 30 } })).json() as { id: string }
@@ -12,7 +12,7 @@ test("владелец удаляет тип в любом состоянии, �
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 })
     await expect.poll(() => page.locator("html").evaluate((el: { scrollWidth: number }) => el.scrollWidth)).toBeLessThanOrEqual(width)
-    await page.screenshot({ path: `/private/tmp/delete-owner-${width}.png`, fullPage: true })
+    await page.screenshot({ path: testInfo.outputPath(`delete-owner-${width}.png`), fullPage: true })
   }
   for (const name of ["Черновик", "Опубликованный", "Закрытый"]) {
     const card = page.getByRole("article", { name, exact: true })
@@ -34,7 +34,7 @@ test("владелец удаляет тип в любом состоянии, �
 })
 
 for (const action of ["confirm", "refresh"] as const) {
-  test(`удалённый тип закрывает старую форму при ${action}`, async ({ page, request }) => {
+  test(`удалённый тип закрывает старую форму при ${action}`, async ({ page, request }, testInfo) => {
     const type = await (await request.post("/api/owner/meeting-types", { data: { name: "Старая ссылка", durationMinutes: 30 } })).json() as { id: string }
     await request.post(`/api/owner/meeting-types/${type.id}/publish`)
     await page.goto(`/booking/${type.id}`)
@@ -53,12 +53,12 @@ for (const action of ["confirm", "refresh"] as const) {
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 844 })
       await expect.poll(() => page.locator("html").evaluate((el: { scrollWidth: number }) => el.scrollWidth)).toBeLessThanOrEqual(width)
-      await page.screenshot({ path: `/private/tmp/delete-stale-${action}-${width}.png`, fullPage: true })
+      await page.screenshot({ path: testInfo.outputPath(`delete-stale-${action}-${width}.png`), fullPage: true })
     }
   })
 }
 
-test("ошибка удаления допускает повтор, а наличие встречи сохраняет снятие публикации", async ({ page, request }) => {
+test("ошибка удаления допускает повтор, а наличие встречи сохраняет снятие публикации", async ({ page, request }, testInfo) => {
   const type = await (await request.post("/api/owner/meeting-types", { data: { name: "Сохранённая встреча", durationMinutes: 30 } })).json() as { id: string }
   await request.post(`/api/owner/meeting-types/${type.id}/publish`)
   const availability = await (await request.get(`/api/meeting-types/${type.id}/slots`)).json() as { slots: { start: string }[] }
@@ -74,7 +74,7 @@ test("ошибка удаления допускает повтор, а нали
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 })
     await expect.poll(() => page.locator("html").evaluate((el: { scrollWidth: number }) => el.scrollWidth)).toBeLessThanOrEqual(width)
-    await page.screenshot({ path: `/private/tmp/delete-conflict-${width}.png`, fullPage: true })
+    await page.screenshot({ path: testInfo.outputPath(`delete-conflict-${width}.png`), fullPage: true })
   }
   await card.getByRole("button", { name: "Снять публикацию", exact: true }).click()
   await expect(card.getByText("Снят с публикации", { exact: true })).toBeVisible()
