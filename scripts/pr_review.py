@@ -161,7 +161,7 @@ def review(temp):
         try:
             run = subprocess.run(
                 [str(temp / "opencode"), "run", "--pure", "--dir", directory,
-                 "--agent", "reviewer", "--model", "opencode/big-pickle",
+                 "--agent", "reviewer", "--model", "opencode/deepseek-v4.1-flash-free",
                  "--title", "Independent PR review", "--format", "json"],
                 cwd=directory,
                 input=prompt,
