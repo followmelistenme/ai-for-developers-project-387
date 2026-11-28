@@ -28,11 +28,11 @@ description = "Install repository-local Git hooks using mise"
 run = "hk install --mise"
 
 [tasks.generate]
-description = "Generate Go and TypeScript from the OpenAPI contract"
+description = "Generate OpenAPI, Go API and TypeScript SDK from TypeSpec"
 run = "bash scripts/generate-api.sh"
 
 [tasks.api-check]
-description = "Check committed OpenAPI generation without changing files"
+description = "Check generated OpenAPI, Go API and TypeScript SDK without changing files"
 run = "bash scripts/generate-api.sh --check"
 
 [tasks.backend]

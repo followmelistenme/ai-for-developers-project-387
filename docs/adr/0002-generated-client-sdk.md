@@ -10,6 +10,9 @@ status: accepted
 Это даёт генерируемые вызовы по operationId ценой большего объёма
 генерируемого кода. Исходный OpenAPI YAML, Gin и oapi-codegen сохраняются.
 
+По [ADR-0003](0003-typespec-contract.md) OpenAPI YAML генерируется из TypeSpec.
+Hey API по-прежнему получает OpenAPI YAML.
+
 `mise run generate` генерирует сервер и всё дерево клиентского SDK;
 `mise run api-check` повторяет генерацию во временные пути и сравнивает
 результаты, включая добавленные и удалённые файлы. Прикладной код импортирует

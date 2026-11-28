@@ -57,6 +57,77 @@ export type Options<
 }
 
 /**
+ * Каталог опубликованных типов встреч
+ *
+ * Возвращает только опубликованные типы в порядке создания. Черновики недоступны гостям.
+ */
+export const listPublishedMeetingTypes = <ThrowOnError extends boolean = false>(
+  options?: Options<ListPublishedMeetingTypesData, ThrowOnError>,
+): RequestResult<ListPublishedMeetingTypesResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<
+    ListPublishedMeetingTypesResponses,
+    unknown,
+    ThrowOnError
+  >({ url: "/api/meeting-types", ...options })
+
+/**
+ * Опубликованный тип встречи по отдельной ссылке
+ *
+ * Возвращает опубликованный тип по уникальному идентификатору, независимо от его названия. Черновики и неизвестные идентификаторы недоступны.
+ */
+export const getPublishedMeetingType = <ThrowOnError extends boolean = false>(
+  options: Options<GetPublishedMeetingTypeData, ThrowOnError>,
+): RequestResult<
+  GetPublishedMeetingTypeResponses,
+  GetPublishedMeetingTypeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPublishedMeetingTypeResponses,
+    GetPublishedMeetingTypeErrors,
+    ThrowOnError
+  >({ url: "/api/meeting-types/{meetingTypeId}", ...options })
+
+/**
+ * Подтвердить запись на звонок
+ *
+ * Атомарно проверяет опубликованный тип, московское окно, рабочие часы, сетку и отсутствие пересечений для всех типов. Длительность и окончание определяются сервером. Выбор слота не резервирует время. Успешная попытка связывает attemptId с типом, моментом начала и обрезанными по краям именем/email (регистр email сохраняется). Точный повтор возвращает исходную встречу до перезапуска, даже после снятия публикации, окончания встречи и выхода даты из окна. Проверка сохранённой попытки предшествует проверке публикации; новая попытка после снятия получает 410. Несовпадение данных сохранённой попытки возвращает 400 fields.attemptId без сведений о встрече. Проверка попытки и сохранение атомарны; неуспешные ответы не запоминаются.
+ */
+export const confirmMeeting = <ThrowOnError extends boolean = false>(
+  options: Options<ConfirmMeetingData, ThrowOnError>,
+): RequestResult<ConfirmMeetingResponses, ConfirmMeetingErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    ConfirmMeetingResponses,
+    ConfirmMeetingErrors,
+    ThrowOnError
+  >({
+    url: "/api/meeting-types/{meetingTypeId}/meetings",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  })
+
+/**
+ * Свободные слоты опубликованного типа
+ *
+ * Окно по Europe/Moscow от завтра до сегодня + 14 дней включительно. Рабочие часы 09:00–18:00, шаг стартов 30 минут. Выбор не резервирует время.
+ */
+export const listAvailableSlots = <ThrowOnError extends boolean = false>(
+  options: Options<ListAvailableSlotsData, ThrowOnError>,
+): RequestResult<
+  ListAvailableSlotsResponses,
+  ListAvailableSlotsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListAvailableSlotsResponses,
+    ListAvailableSlotsErrors,
+    ThrowOnError
+  >({ url: "/api/meeting-types/{meetingTypeId}/slots", ...options })
+
+/**
  * Список типов встреч владельца
  *
  * Возвращает сохранённые типы встреч, включая черновики. Новый процесс начинает с пустого списка.
@@ -150,56 +221,6 @@ export const withdrawOwnerMeetingType = <ThrowOnError extends boolean = false>(
   >({ url: "/api/owner/meeting-types/{meetingTypeId}/withdraw", ...options })
 
 /**
- * Каталог опубликованных типов встреч
- *
- * Возвращает только опубликованные типы в порядке создания. Черновики недоступны гостям.
- */
-export const listPublishedMeetingTypes = <ThrowOnError extends boolean = false>(
-  options?: Options<ListPublishedMeetingTypesData, ThrowOnError>,
-): RequestResult<ListPublishedMeetingTypesResponses, unknown, ThrowOnError> =>
-  (options?.client ?? client).get<
-    ListPublishedMeetingTypesResponses,
-    unknown,
-    ThrowOnError
-  >({ url: "/api/meeting-types", ...options })
-
-/**
- * Опубликованный тип встречи по отдельной ссылке
- *
- * Возвращает опубликованный тип по уникальному идентификатору, независимо от его названия. Черновики и неизвестные идентификаторы недоступны.
- */
-export const getPublishedMeetingType = <ThrowOnError extends boolean = false>(
-  options: Options<GetPublishedMeetingTypeData, ThrowOnError>,
-): RequestResult<
-  GetPublishedMeetingTypeResponses,
-  GetPublishedMeetingTypeErrors,
-  ThrowOnError
-> =>
-  (options.client ?? client).get<
-    GetPublishedMeetingTypeResponses,
-    GetPublishedMeetingTypeErrors,
-    ThrowOnError
-  >({ url: "/api/meeting-types/{meetingTypeId}", ...options })
-
-/**
- * Свободные слоты опубликованного типа
- *
- * Окно по Europe/Moscow от завтра до сегодня + 14 дней включительно. Рабочие часы 09:00–18:00, шаг стартов 30 минут. Выбор не резервирует время.
- */
-export const listAvailableSlots = <ThrowOnError extends boolean = false>(
-  options: Options<ListAvailableSlotsData, ThrowOnError>,
-): RequestResult<
-  ListAvailableSlotsResponses,
-  ListAvailableSlotsErrors,
-  ThrowOnError
-> =>
-  (options.client ?? client).get<
-    ListAvailableSlotsResponses,
-    ListAvailableSlotsErrors,
-    ThrowOnError
-  >({ url: "/api/meeting-types/{meetingTypeId}/slots", ...options })
-
-/**
  * Предстоящие встречи владельца
  *
  * Все типы, включая уже начавшиеся встречи, пока end больше текущего времени. Порядок по началу от ближайших. Контакты доступны только здесь и в результате подтверждения; авторизации нет.
@@ -212,24 +233,3 @@ export const listOwnerMeetings = <ThrowOnError extends boolean = false>(
     unknown,
     ThrowOnError
   >({ url: "/api/owner/meetings", ...options })
-
-/**
- * Подтвердить запись на звонок
- *
- * Атомарно проверяет опубликованный тип, московское окно, рабочие часы, сетку и отсутствие пересечений для всех типов. Длительность и окончание определяются сервером. Выбор слота не резервирует время. Успешная попытка связывает attemptId с типом, моментом начала и обрезанными по краям именем/email (регистр email сохраняется). Точный повтор возвращает исходную встречу до перезапуска, даже после снятия публикации, окончания встречи и выхода даты из окна. Проверка сохранённой попытки предшествует проверке публикации; новая попытка после снятия получает 410. Несовпадение данных сохранённой попытки возвращает 400 fields.attemptId без сведений о встрече. Проверка попытки и сохранение атомарны; неуспешные ответы не запоминаются.
- */
-export const confirmMeeting = <ThrowOnError extends boolean = false>(
-  options: Options<ConfirmMeetingData, ThrowOnError>,
-): RequestResult<ConfirmMeetingResponses, ConfirmMeetingErrors, ThrowOnError> =>
-  (options.client ?? client).post<
-    ConfirmMeetingResponses,
-    ConfirmMeetingErrors,
-    ThrowOnError
-  >({
-    url: "/api/meeting-types/{meetingTypeId}/meetings",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  })

@@ -14,6 +14,9 @@ openapi-typescript для клиента openapi-fetch.
 
 ## Последствия
 
+Источник контракта перенесён в TypeSpec по [ADR-0003](0003-typespec-contract.md).
+OpenAPI остаётся общим форматом для генерации и валидации API.
+
 Клиентская часть решения заменена в [ADR-0002](0002-generated-client-sdk.md):
 вместо openapi-typescript/openapi-fetch генерируется SDK Hey API.
 
