@@ -16,16 +16,16 @@
 
 ### REST API и OpenAPI
 
-- Используйте Gin и подход OpenAPI-first; решения —
-  в `docs/adr/0001-openapi-contract-first.md` и
-  `docs/adr/0002-generated-client-sdk.md`.
-- Источник контракта — `api/openapi.yaml`. Сначала меняйте контракт,
-  затем запускайте `mise run generate` для обеих сторон.
+- Используйте Gin и проектируйте API через контракт TypeSpec
+  в `api/main.tsp` и `api/models.tsp`. При изменении контракта
+  запускайте `mise run generate` для OpenAPI, Go и SDK.
+  Решение о цепочке генерации — в `docs/adr/0003-typespec-contract.md`.
+- Генерируемый OpenAPI: `api/openapi.yaml`.
 - Генерируемый сервер: `backend/internal/api/api.gen.go`.
 - Генерируемый клиент: всё дерево `frontend/src/api/generated/`,
   включая `sdk.gen.ts`, `types.gen.ts` и Fetch-клиент.
-- Проверяйте актуальность командой `mise run api-check`; она входит
-  в `mise run check` и CI и не переписывает результаты генерации.
+- Проверяйте все три артефакта командой `mise run api-check`.
+  Проверка входит в `mise run check` и CI и выполняется во временной директории.
 - Для Go используйте oapi-codegen: `models`, `gin-server`, `strict-server`
   и `embedded-spec`.
 - Для TypeScript используйте Hey API; обращайтесь к API через

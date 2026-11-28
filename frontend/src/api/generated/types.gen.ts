@@ -4,84 +4,6 @@ export type ClientOptions = {
   baseUrl: `${string}://${string}` | (string & {})
 }
 
-export type MeetingTypeDeletionConflict = {
-  /**
-   * Любая встреча, включая прошедшую, запрещает удаление типа.
-   */
-  message: "Нельзя удалить тип встречи, по которому есть встречи"
-}
-
-export type BookingClosedError = {
-  /**
-   * Окончательное закрытие новых бронирований по прежней ссылке.
-   */
-  message: "Запись на этот тип встречи закрыта"
-}
-
-export type ConfirmMeeting = {
-  /**
-   * UUID отдельной попытки. Повторы передают те же данные и UUID; новая попытка после определённого отказа получает новый UUID. Успешные попытки хранятся в памяти до перезапуска без TTL; ошибки не связывают UUID.
-   */
-  attemptId: string
-  /**
-   * Начало выбранного слота в RFC 3339; проверяется по Europe/Moscow.
-   */
-  start: string
-  /**
-   * Обязательное имя, 1–100 символов Unicode после обрезки пробелов по краям.
-   */
-  guestName: string
-  /**
-   * Обязательный адрес email корректного формата, до 254 символов после обрезки пробелов по краям. Подтверждение письмом не выполняется.
-   */
-  guestEmail: string
-}
-
-export type Meeting = {
-  /**
-   * Уникальный идентификатор созданной встречи.
-   */
-  id: string
-  meetingType: MeetingType
-  /**
-   * Календарная дата встречи по Europe/Moscow.
-   */
-  date: string
-  /**
-   * Начало включительно, RFC 3339 по Москве.
-   */
-  start: string
-  /**
-   * Окончание исключительно, рассчитано из длительности типа, RFC 3339 по Москве.
-   */
-  end: string
-  /**
-   * Имя гостя с обрезанными пробелами по краям.
-   */
-  guestName: string
-  /**
-   * Email гостя с обрезанными пробелами по краям.
-   */
-  guestEmail: string
-  /**
-   * Демонстрационная ссылка http://localhost/event/{event_id}, идентификатор встречи. Реальная видеосвязь и страница ссылки не реализуются.
-   */
-  callUrl: string
-}
-
-/**
- * Встречи с end больше текущего времени, по возрастанию start.
- */
-export type MeetingList = Array<Meeting>
-
-export type BookingConflict = {
-  /**
-   * Сообщение о занятом интервале.
-   */
-  message: string
-  availability: AvailableSlots
-}
-
 /**
  * Свободный интервал; выбор не создаёт встречу.
  */
@@ -127,11 +49,38 @@ export type AvailableSlots = {
   slots: Array<AvailableSlot>
 }
 
-export type MeetingTypeNotFoundError = {
+export type BookingClosedError = {
   /**
-   * Сообщение о недоступном типе встречи.
+   * Окончательное закрытие новых бронирований по прежней ссылке.
+   */
+  message: "Запись на этот тип встречи закрыта"
+}
+
+export type BookingConflict = {
+  /**
+   * Сообщение о занятом интервале.
    */
   message: string
+  availability: AvailableSlots
+}
+
+export type ConfirmMeeting = {
+  /**
+   * UUID отдельной попытки. Повторы передают те же данные и UUID; новая попытка после определённого отказа получает новый UUID. Успешные попытки хранятся в памяти до перезапуска без TTL; ошибки не связывают UUID.
+   */
+  attemptId: string
+  /**
+   * Начало выбранного слота в RFC 3339; проверяется по Europe/Moscow.
+   */
+  start: string
+  /**
+   * Обязательное имя, 1–100 символов Unicode после обрезки пробелов по краям.
+   */
+  guestName: string
+  /**
+   * Обязательный адрес email корректного формата, до 254 символов после обрезки пробелов по краям. Подтверждение письмом не выполняется.
+   */
+  guestEmail: string
 }
 
 export type CreateMeetingType = {
@@ -148,6 +97,43 @@ export type CreateMeetingType = {
    */
   durationMinutes: 15 | 30 | 45 | 60
 }
+
+export type Meeting = {
+  /**
+   * Уникальный идентификатор созданной встречи.
+   */
+  id: string
+  meetingType: MeetingType
+  /**
+   * Календарная дата встречи по Europe/Moscow.
+   */
+  date: string
+  /**
+   * Начало включительно, RFC 3339 по Москве.
+   */
+  start: string
+  /**
+   * Окончание исключительно, рассчитано из длительности типа, RFC 3339 по Москве.
+   */
+  end: string
+  /**
+   * Имя гостя с обрезанными пробелами по краям.
+   */
+  guestName: string
+  /**
+   * Email гостя с обрезанными пробелами по краям.
+   */
+  guestEmail: string
+  /**
+   * Демонстрационная ссылка http://localhost/event/{event_id}, идентификатор встречи. Реальная видеосвязь и страница ссылки не реализуются.
+   */
+  callUrl: string
+}
+
+/**
+ * Встречи с end больше текущего времени, по возрастанию start.
+ */
+export type MeetingList = Array<Meeting>
 
 export type MeetingType = {
   /**
@@ -172,10 +158,24 @@ export type MeetingType = {
   status: "draft" | "published" | "withdrawn"
 }
 
+export type MeetingTypeDeletionConflict = {
+  /**
+   * Любая встреча, включая прошедшую, запрещает удаление типа.
+   */
+  message: "Нельзя удалить тип встречи, по которому есть встречи"
+}
+
 /**
  * Типы встреч в порядке создания.
  */
 export type MeetingTypeList = Array<MeetingType>
+
+export type MeetingTypeNotFoundError = {
+  /**
+   * Сообщение о недоступном типе встречи.
+   */
+  message: string
+}
 
 export type ValidationError = {
   /**
@@ -194,6 +194,148 @@ export type ValidationError = {
  * Уникальный идентификатор типа встречи.
  */
 export type MeetingTypeId = string
+
+export type ListPublishedMeetingTypesData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/api/meeting-types"
+}
+
+export type ListPublishedMeetingTypesResponses = {
+  /**
+   * Опубликованные типы встреч; пустой список, если публикаций нет
+   */
+  200: MeetingTypeList
+}
+
+export type ListPublishedMeetingTypesResponse =
+  ListPublishedMeetingTypesResponses[keyof ListPublishedMeetingTypesResponses]
+
+export type GetPublishedMeetingTypeData = {
+  body?: never
+  path: {
+    /**
+     * Уникальный идентификатор типа встречи.
+     */
+    meetingTypeId: string
+  }
+  query?: never
+  url: "/api/meeting-types/{meetingTypeId}"
+}
+
+export type GetPublishedMeetingTypeErrors = {
+  /**
+   * Тип встречи не найден или недоступен гостю
+   */
+  404: MeetingTypeNotFoundError
+  /**
+   * Запись на этот тип встречи окончательно закрыта; без сведений о гостях
+   */
+  410: BookingClosedError
+}
+
+export type GetPublishedMeetingTypeError =
+  GetPublishedMeetingTypeErrors[keyof GetPublishedMeetingTypeErrors]
+
+export type GetPublishedMeetingTypeResponses = {
+  /**
+   * Опубликованный тип встречи
+   */
+  200: MeetingType
+}
+
+export type GetPublishedMeetingTypeResponse =
+  GetPublishedMeetingTypeResponses[keyof GetPublishedMeetingTypeResponses]
+
+export type ConfirmMeetingData = {
+  body: ConfirmMeeting
+  path: {
+    /**
+     * Уникальный идентификатор типа встречи.
+     */
+    meetingTypeId: string
+  }
+  query?: never
+  url: "/api/meeting-types/{meetingTypeId}/meetings"
+}
+
+export type ConfirmMeetingErrors = {
+  /**
+   * Некорректный attemptId, контакты или начало; либо attemptId успешной попытки использован с другими данными (fields.attemptId). Новая встреча не создана, сведения прежней не возвращаются
+   */
+  400: ValidationError
+  /**
+   * Тип встречи не найден или недоступен гостю
+   */
+  404: MeetingTypeNotFoundError
+  /**
+   * Интервал уже занят; актуальные свободные слоты выбранной московской даты без сведений о других гостях
+   */
+  409: BookingConflict
+  /**
+   * Запись на этот тип встречи окончательно закрыта; без сведений о гостях
+   */
+  410: BookingClosedError
+}
+
+export type ConfirmMeetingError =
+  ConfirmMeetingErrors[keyof ConfirmMeetingErrors]
+
+export type ConfirmMeetingResponses = {
+  /**
+   * Встреча создана или возвращена исходная встреча успешной попытки; сохраните сведения самостоятельно, писем и напоминаний нет
+   */
+  201: Meeting
+}
+
+export type ConfirmMeetingResponse =
+  ConfirmMeetingResponses[keyof ConfirmMeetingResponses]
+
+export type ListAvailableSlotsData = {
+  body?: never
+  path: {
+    /**
+     * Уникальный идентификатор типа встречи.
+     */
+    meetingTypeId: string
+  }
+  query?: {
+    /**
+     * Календарная дата по Москве, YYYY-MM-DD. Без параметра выбирается первый день текущего окна.
+     */
+    date?: string
+  }
+  url: "/api/meeting-types/{meetingTypeId}/slots"
+}
+
+export type ListAvailableSlotsErrors = {
+  /**
+   * Некорректная дата или дата вне текущего окна записи
+   */
+  400: ValidationError
+  /**
+   * Тип встречи не найден или недоступен гостю
+   */
+  404: MeetingTypeNotFoundError
+  /**
+   * Запись на этот тип встречи окончательно закрыта; без сведений о гостях
+   */
+  410: BookingClosedError
+}
+
+export type ListAvailableSlotsError =
+  ListAvailableSlotsErrors[keyof ListAvailableSlotsErrors]
+
+export type ListAvailableSlotsResponses = {
+  /**
+   * Актуальное окно записи и интервалы для выбранной даты
+   */
+  200: AvailableSlots
+}
+
+export type ListAvailableSlotsResponse =
+  ListAvailableSlotsResponses[keyof ListAvailableSlotsResponses]
 
 export type ListOwnerMeetingTypesData = {
   body?: never
@@ -347,104 +489,6 @@ export type WithdrawOwnerMeetingTypeResponses = {
 export type WithdrawOwnerMeetingTypeResponse =
   WithdrawOwnerMeetingTypeResponses[keyof WithdrawOwnerMeetingTypeResponses]
 
-export type ListPublishedMeetingTypesData = {
-  body?: never
-  path?: never
-  query?: never
-  url: "/api/meeting-types"
-}
-
-export type ListPublishedMeetingTypesResponses = {
-  /**
-   * Опубликованные типы встреч; пустой список, если публикаций нет
-   */
-  200: MeetingTypeList
-}
-
-export type ListPublishedMeetingTypesResponse =
-  ListPublishedMeetingTypesResponses[keyof ListPublishedMeetingTypesResponses]
-
-export type GetPublishedMeetingTypeData = {
-  body?: never
-  path: {
-    /**
-     * Уникальный идентификатор типа встречи.
-     */
-    meetingTypeId: string
-  }
-  query?: never
-  url: "/api/meeting-types/{meetingTypeId}"
-}
-
-export type GetPublishedMeetingTypeErrors = {
-  /**
-   * Тип встречи не найден или недоступен гостю
-   */
-  404: MeetingTypeNotFoundError
-  /**
-   * Запись на этот тип встречи окончательно закрыта; без сведений о гостях
-   */
-  410: BookingClosedError
-}
-
-export type GetPublishedMeetingTypeError =
-  GetPublishedMeetingTypeErrors[keyof GetPublishedMeetingTypeErrors]
-
-export type GetPublishedMeetingTypeResponses = {
-  /**
-   * Опубликованный тип встречи
-   */
-  200: MeetingType
-}
-
-export type GetPublishedMeetingTypeResponse =
-  GetPublishedMeetingTypeResponses[keyof GetPublishedMeetingTypeResponses]
-
-export type ListAvailableSlotsData = {
-  body?: never
-  path: {
-    /**
-     * Уникальный идентификатор типа встречи.
-     */
-    meetingTypeId: string
-  }
-  query?: {
-    /**
-     * Календарная дата по Москве, YYYY-MM-DD. Без параметра выбирается первый день текущего окна.
-     */
-    date?: string
-  }
-  url: "/api/meeting-types/{meetingTypeId}/slots"
-}
-
-export type ListAvailableSlotsErrors = {
-  /**
-   * Некорректная дата или дата вне текущего окна записи
-   */
-  400: ValidationError
-  /**
-   * Тип встречи не найден или недоступен гостю
-   */
-  404: MeetingTypeNotFoundError
-  /**
-   * Запись на этот тип встречи окончательно закрыта; без сведений о гостях
-   */
-  410: BookingClosedError
-}
-
-export type ListAvailableSlotsError =
-  ListAvailableSlotsErrors[keyof ListAvailableSlotsErrors]
-
-export type ListAvailableSlotsResponses = {
-  /**
-   * Актуальное окно записи и интервалы для выбранной даты
-   */
-  200: AvailableSlots
-}
-
-export type ListAvailableSlotsResponse =
-  ListAvailableSlotsResponses[keyof ListAvailableSlotsResponses]
-
 export type ListOwnerMeetingsData = {
   body?: never
   path?: never
@@ -461,47 +505,3 @@ export type ListOwnerMeetingsResponses = {
 
 export type ListOwnerMeetingsResponse =
   ListOwnerMeetingsResponses[keyof ListOwnerMeetingsResponses]
-
-export type ConfirmMeetingData = {
-  body: ConfirmMeeting
-  path: {
-    /**
-     * Уникальный идентификатор типа встречи.
-     */
-    meetingTypeId: string
-  }
-  query?: never
-  url: "/api/meeting-types/{meetingTypeId}/meetings"
-}
-
-export type ConfirmMeetingErrors = {
-  /**
-   * Некорректный attemptId, контакты или начало; либо attemptId успешной попытки использован с другими данными (fields.attemptId). Новая встреча не создана, сведения прежней не возвращаются
-   */
-  400: ValidationError
-  /**
-   * Тип встречи не найден или недоступен гостю
-   */
-  404: MeetingTypeNotFoundError
-  /**
-   * Интервал уже занят; актуальные свободные слоты выбранной московской даты без сведений о других гостях
-   */
-  409: BookingConflict
-  /**
-   * Запись на этот тип встречи окончательно закрыта; без сведений о гостях
-   */
-  410: BookingClosedError
-}
-
-export type ConfirmMeetingError =
-  ConfirmMeetingErrors[keyof ConfirmMeetingErrors]
-
-export type ConfirmMeetingResponses = {
-  /**
-   * Встреча создана или возвращена исходная встреча успешной попытки; сохраните сведения самостоятельно, писем и напоминаний нет
-   */
-  201: Meeting
-}
-
-export type ConfirmMeetingResponse =
-  ConfirmMeetingResponses[keyof ConfirmMeetingResponses]

@@ -20,18 +20,17 @@
 
 - Бэкенд: Go, Gin; генерация DTO и серверного интерфейса через oapi-codegen.
 - Фронтенд: React, TypeScript, Vite, Tailwind CSS и [shadcn/ui](https://ui.shadcn.com/docs/installation/vite).
-- Контракт API: OpenAPI-first; TypeScript DTO, SDK-функции и Fetch-клиент
-  генерируются через Hey API.
+- Контракт API: TypeSpec → OpenAPI → Go и TypeScript. DTO, SDK-функции и
+  Fetch-клиент для TypeScript генерируются через Hey API.
 
 ### Контракт API и генерация SDK
 
 Принята связка **Gin + oapi-codegen** для бэкенда и
 **Hey API + Fetch** для фронтенда.
-Обоснование — в [ADR-0001](docs/adr/0001-openapi-contract-first.md) и
-[ADR-0002](docs/adr/0002-generated-client-sdk.md).
+Цепочка генерации описана в [ADR-0003](docs/adr/0003-typespec-contract.md).
 
-Общий контракт находится в `api/openapi.yaml`.
-Из одного файла генерируются:
+Контракт редактируется в `api/main.tsp` (операции) и `api/models.tsp` (схемы).
+Из TypeSpec генерируется `api/openapi.yaml` в формате OpenAPI 3.0, а из него —
 
 - `backend/internal/api/api.gen.go` — Go DTO запросов и ответов,
   серверный интерфейс и HTTP-обвязка для Gin. Параметры oapi-codegen:
@@ -42,10 +41,10 @@
   Прикладной код вызывает SDK-функции, например `confirmMeeting`,
   и не собирает HTTP-пути вручную.
 
-Порядок работы: изменить контракт → запустить оба генератора → реализовать
-или обновить обработчики и вызовы клиента → выполнить проверки.
-Используйте именованные схемы в `components/schemas` и стабильные `operationId`.
-Версии закреплены: oapi-codegen 2.8.2 и @hey-api/openapi-ts 0.99.0.
+После изменения контракта запустите `mise run generate`, затем обновите
+обработчики и вызовы клиента при необходимости и выполните проверки.
+Используйте именованные модели и стабильные имена операций для `operationId`.
+Закреплённые версии генераторов — TypeSpec 1.18.0, oapi-codegen 2.8.2 и Hey API 0.99.0.
 Сгенерированные файлы хранятся в Git и обновляются только генерацией:
 
 ```bash
@@ -54,10 +53,11 @@ mise run generate
 mise run api-check
 ```
 
-`api-check` генерирует оба результата во временные пути и сравнивает
-с закоммиченными файлами, включая полный состав дерева SDK; рабочие файлы
-не изменяются. Проверка входит в `mise run check` и CI. Генератор изолирован
-в `api/package.json`; приложение использует TypeScript 6.0.3.
+`api-check` повторяет всю цепочку во временной директории и сравнивает
+OpenAPI YAML, Go и полное дерево SDK с файлами рабочего дерева. Проверка
+входит в `mise run check` и задачу Quality gates в CI. Зависимости
+генераторов закреплены отдельно в `api/package.json` и `api/package-lock.json`.
+Приложение использует TypeScript 6.0.3.
 Для генератора закреплена js-yaml 4.3.2 с исправлениями YAML DoS;
 при обновлении Hey API проверьте, можно ли удалить override.
 
@@ -581,7 +581,7 @@ mise управляет окружением, hk — хуками и общим 
 Go-линтерами и форматированием, govulncheck — уязвимостями Go, Betterleaks —
 секретами, jactionlint с ShellCheck — workflow, agnix — инструкциями агентам.
 Существующие ESLint, TypeScript, Playwright и Dependabot сохранены.
-Проверка актуальности OpenAPI-генерации входит в общий набор.
+Проверка актуальности OpenAPI, Go и SDK входит в общий набор.
 Docker проверяется отдельной контейнерной приёмкой. Проверки Terraform,
 Kubernetes и миграций БД не добавлены: таких файлов в проекте нет.
 
