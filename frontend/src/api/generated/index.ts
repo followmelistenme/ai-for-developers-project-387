@@ -62,6 +62,7 @@ export type {
   MeetingTypeId,
   MeetingTypeList,
   MeetingTypeNotFoundError,
+  MeetingTypePublicationConflict,
   PublishOwnerMeetingTypeData,
   PublishOwnerMeetingTypeError,
   PublishOwnerMeetingTypeErrors,

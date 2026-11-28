@@ -18,6 +18,15 @@ type availabilityResponse struct {
 
 func publishType(t *testing.T, h http.Handler, duration int) string {
 	t.Helper()
+	id := createDraft(t, h, duration)
+	if got := request(h, http.MethodPost, "/api/owner/meeting-types/"+id+"/publish"); got.Code != http.StatusOK {
+		t.Fatal(got.Body.String())
+	}
+	return id
+}
+
+func createDraft(t *testing.T, h http.Handler, duration int) string {
+	t.Helper()
 	created := post(t, h, fmt.Sprintf(`{"name":"Звонок","durationMinutes":%d}`, duration))
 	if created.Code != http.StatusCreated {
 		t.Fatalf("create: %s", created.Body.String())
@@ -25,9 +34,6 @@ func publishType(t *testing.T, h http.Handler, duration int) string {
 	var item struct{ ID string }
 	if err := json.Unmarshal(created.Body.Bytes(), &item); err != nil {
 		t.Fatal(err)
-	}
-	if got := request(h, http.MethodPost, "/api/owner/meeting-types/"+item.ID+"/publish"); got.Code != http.StatusOK {
-		t.Fatal(got.Body.String())
 	}
 	return item.ID
 }

@@ -95,8 +95,12 @@ export function OwnerPage() {
     setPublishing((previous) => [...previous, id])
     setPublishErrors((previous) => ({ ...previous, [id]: "" }))
     try {
-      const { data, response } = await publishOwnerMeetingType({ path: { meetingTypeId: id } })
+      const { data, error, response } = await publishOwnerMeetingType({ path: { meetingTypeId: id } })
       if (deletedIds.current.has(id)) return
+      if (response?.status === 409 && error && "code" in error && error.code === "publication_limit_reached") {
+        setPublishErrors((previous) => ({ ...previous, [id]: error.message }))
+        return
+      }
       if (!response?.ok || !data) throw new Error("Publication failed")
       setTypes((previous) => previous.map((type) => type.id === id ? data : type))
       setMessage("Тип встречи опубликован")

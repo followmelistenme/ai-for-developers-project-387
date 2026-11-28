@@ -105,6 +105,33 @@ test("публикацию можно повторить после сетево
   await expect(card.getByRole("alert")).toHaveCount(0)
 })
 
+test("при пяти публикациях владелец сохраняет черновик и повторяет публикацию после освобождения места", async ({ page, request }) => {
+  const published: string[] = []
+  for (let index = 1; index <= 5; index += 1) {
+    const response = await request.post("/api/owner/meeting-types", { data: { name: `Звонок ${index}`, durationMinutes: 30 } })
+    expect(response.status()).toBe(201)
+    const { id } = await response.json() as { id: string }
+    expect((await request.post(`/api/owner/meeting-types/${id}/publish`)).status()).toBe(200)
+    published.push(id)
+  }
+
+  await page.goto("/owner")
+  await page.getByRole("button", { name: "Создать тип встречи", exact: true }).click()
+  await page.getByLabel("Название", { exact: true }).fill("Шестой звонок")
+  await page.getByRole("button", { name: "Сохранить черновик", exact: true }).click()
+  const draft = page.getByRole("article", { name: "Шестой звонок", exact: true })
+  const publish = draft.getByRole("button", { name: "Опубликовать", exact: true })
+  await publish.click()
+  await expect(draft.getByRole("alert")).toHaveText("Уже опубликовано 5 типов встреч. Снимите публикацию с одного из них и попробуйте снова")
+  await expect(draft.getByText("Черновик", { exact: true })).toBeVisible()
+  await expect(publish).toBeEnabled()
+
+  expect((await request.post(`/api/owner/meeting-types/${published[0]}/withdraw`)).status()).toBe(200)
+  await publish.click()
+  await expect(draft.getByText("Опубликован", { exact: true })).toBeVisible()
+  await expect(draft.getByRole("alert")).toHaveCount(0)
+})
+
 test("каталог с завершающим слешем загружается, вложенная ссылка недоступна", async ({ page }) => {
   await page.goto("/booking/")
   await expect(page.getByRole("heading", { name: "Выберите тип встречи", level: 1 })).toBeVisible()

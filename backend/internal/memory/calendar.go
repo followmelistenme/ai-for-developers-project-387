@@ -38,20 +38,31 @@ func (c *Calendar) MeetingTypes() []meetingtype.MeetingType {
 	return append([]meetingtype.MeetingType{}, c.types...)
 }
 
-// Publish exposes a draft; a withdrawn type can never be revived.
+// Publish exposes a draft if the calendar has room for another published type.
 func (c *Calendar) Publish(id string) (meetingtype.MeetingType, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	for i := range c.types {
-		if c.types[i].ID == id {
-			if c.types[i].Status == meetingtype.Withdrawn {
-				return meetingtype.MeetingType{}, ErrInvalidTransition
-			}
-			c.types[i].Status = meetingtype.Published
-			return c.types[i], nil
+	index := slices.IndexFunc(c.types, func(item meetingtype.MeetingType) bool { return item.ID == id })
+	if index < 0 {
+		return meetingtype.MeetingType{}, ErrTypeUnavailable
+	}
+	switch c.types[index].Status {
+	case meetingtype.Published:
+		return c.types[index], nil
+	case meetingtype.Withdrawn:
+		return meetingtype.MeetingType{}, ErrInvalidTransition
+	}
+	published := 0
+	for _, item := range c.types {
+		if item.Status == meetingtype.Published {
+			published++
 		}
 	}
-	return meetingtype.MeetingType{}, ErrTypeUnavailable
+	if published >= meetingtype.MaxPublished {
+		return meetingtype.MeetingType{}, ErrPublicationLimit
+	}
+	c.types[index].Status = meetingtype.Published
+	return c.types[index], nil
 }
 
 // Withdraw permanently closes new bookings under the same lock used by Confirm.
@@ -121,6 +132,9 @@ var ErrTypeHasMeetings = errors.New("meeting type has meetings")
 
 // ErrInvalidTransition means the requested lifecycle change is forbidden.
 var ErrInvalidTransition = errors.New("invalid meeting type transition")
+
+// ErrPublicationLimit means the calendar already has the maximum number of published types.
+var ErrPublicationLimit = errors.New("meeting type publication limit reached")
 
 // ErrBookingClosed means publication has been permanently withdrawn.
 var ErrBookingClosed = errors.New("booking closed")

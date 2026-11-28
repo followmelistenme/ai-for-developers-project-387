@@ -177,6 +177,17 @@ export type MeetingTypeNotFoundError = {
   message: string
 }
 
+export type MeetingTypePublicationConflict = {
+  /**
+   * Причина отказа в публикации.
+   */
+  message: string
+  /**
+   * Присутствует, если в календаре уже опубликовано пять типов встреч.
+   */
+  code?: "publication_limit_reached"
+}
+
 export type ValidationError = {
   /**
    * Общее сообщение об ошибке.
@@ -435,9 +446,9 @@ export type PublishOwnerMeetingTypeErrors = {
    */
   404: MeetingTypeNotFoundError
   /**
-   * Переход состояния типа встречи запрещён
+   * Публикация снятого типа запрещена или все пять мест заняты. При заполненном лимите черновик сохраняется.
    */
-  409: MeetingTypeNotFoundError
+  409: MeetingTypePublicationConflict
 }
 
 export type PublishOwnerMeetingTypeError =
