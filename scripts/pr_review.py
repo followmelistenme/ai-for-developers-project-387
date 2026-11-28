@@ -29,6 +29,10 @@ Use an empty findings array when you have no supported findings.
 """
 
 
+class OpenCodeReviewError(Exception):
+    """An OpenCode failure that can be printed in the workflow log."""
+
+
 def pr_event():
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
     return int(event["number"]), event["pull_request"]
@@ -106,19 +110,38 @@ def validate_findings(value, files):
     return findings
 
 
-def parse_review(output, files):
-    parts = []
-    for line in output.splitlines():
-        event = json.loads(line)
-        if event["type"] == "error":
-            raise ValueError("OpenCode reported an error")
-        if event["type"] == "text":
-            parts.append(event["part"]["text"])
+def opencode_error_message(event):
+    error = event.get("error")
+    data = error.get("data") if isinstance(error, dict) else None
+    status = data.get("statusCode") if isinstance(data, dict) else None
+    if type(status) is int and 400 <= status <= 599:
+        return f"OpenCode request failed (HTTP {status})."
+    return "OpenCode reported a session error."
 
-    answer = "".join(parts).strip()
+
+def parse_review(output, files, *, returncode):
+    parts = []
+    try:
+        for line in output.splitlines():
+            event = json.loads(line)
+            if event["type"] == "error":
+                raise OpenCodeReviewError(opencode_error_message(event))
+            if event["type"] == "text":
+                parts.append(event["part"]["text"])
+        answer = "".join(parts).strip()
+    except (ValueError, TypeError, KeyError):
+        if not returncode:
+            raise OpenCodeReviewError("OpenCode returned an invalid JSON event stream.") from None
+
+    if returncode:
+        raise OpenCodeReviewError(f"OpenCode CLI exited with code {returncode}.")
+
     if answer.startswith("```json\n") and answer.endswith("\n```"):
         answer = answer[len("```json\n"):-len("\n```")].strip()
-    return validate_findings(json.loads(answer), files)
+    try:
+        return validate_findings(json.loads(answer), files)
+    except (ValueError, TypeError, AttributeError, KeyError):
+        raise OpenCodeReviewError("OpenCode returned an invalid review response.") from None
 
 
 def review(temp):
@@ -135,19 +158,24 @@ def review(temp):
             "permission": {"*": "deny"},
             "agent": {"reviewer": {"mode": "primary", "steps": 1, "permission": {"*": "deny"}}},
         })
-        run = subprocess.run(
-            [str(temp / "opencode"), "run", "--pure", "--dir", directory,
-             "--agent", "reviewer", "--model", "opencode/big-pickle",
-             "--title", "Independent PR review", "--format", "json"],
-            cwd=directory,
-            input=prompt,
-            text=True,
-            capture_output=True,
-            timeout=90,
-            check=True,
-        )
+        try:
+            run = subprocess.run(
+                [str(temp / "opencode"), "run", "--pure", "--dir", directory,
+                 "--agent", "reviewer", "--model", "opencode/big-pickle",
+                 "--title", "Independent PR review", "--format", "json"],
+                cwd=directory,
+                input=prompt,
+                text=True,
+                capture_output=True,
+                timeout=90,
+            )
+        except subprocess.TimeoutExpired as error:
+            raise OpenCodeReviewError(f"OpenCode CLI timed out after {error.timeout:g} seconds.") from None
+        except OSError:
+            raise OpenCodeReviewError("OpenCode CLI could not start.") from None
 
-    findings = parse_review(run.stdout, {change["file"] for change in context["changes"]})
+    files = {change["file"] for change in context["changes"]}
+    findings = parse_review(run.stdout, files, returncode=run.returncode)
     write_json(temp / "pr-review-result.json", findings)
 
 
@@ -214,6 +242,8 @@ def main():
     args = parser.parse_args()
     try:
         commands[args.command](Path(os.environ["RUNNER_TEMP"]))
+    except OpenCodeReviewError as error:
+        sys.exit(str(error))
     except HTTPError as error:
         sys.exit(f"GitHub API request failed (HTTP {error.code}).")
     except URLError:

@@ -22,6 +22,7 @@ class PullRequestReviewTest(unittest.TestCase):
             "GITHUB_EVENT_PATH": str(payload),
             "GITHUB_OUTPUT": str(self.output),
             "OPENCODE_API_KEY": "fake-key-for-tests",
+            "RUNNER_TEMP": str(self.temp),
             "PR_REVIEW_ATTEMPT": "2",
             "PR_REVIEW_COMMENT_ID": "101",
         })
@@ -66,6 +67,36 @@ class PullRequestReviewTest(unittest.TestCase):
         self.assertIn(current["head"]["sha"], body)
         self.assertIn("MEDIUM REVIEW.md:1", body)
         self.assertEqual(body.count("```"), 2)
+
+    @patch.object(pr_review.subprocess, "run")
+    @patch("sys.argv", ["pr_review.py", "review"])
+    def test_review_failure_reports_only_safe_diagnostics(self, opencode):
+        pr_review.write_json(self.temp / "pr-review-context.json", {"criteria": "Review", "changes": []})
+        private_text = "private PR content and fake-key-for-tests"
+        api_error = json.dumps({
+            "type": "error",
+            "error": {"name": "APIError", "data": {"statusCode": 401, "message": private_text}},
+        })
+        invalid_review = json.dumps({"type": "text", "part": {"text": private_text}})
+        for outcome, diagnostic in (
+            (subprocess.CompletedProcess([], 1, stdout=api_error, stderr=private_text),
+             "OpenCode request failed (HTTP 401)."),
+            (subprocess.CompletedProcess([], 2, stdout="", stderr=private_text),
+             "OpenCode CLI exited with code 2."),
+            (subprocess.CompletedProcess([], 0, stdout=private_text),
+             "OpenCode returned an invalid JSON event stream."),
+            (subprocess.CompletedProcess([], 0, stdout=invalid_review),
+             "OpenCode returned an invalid review response."),
+            (subprocess.TimeoutExpired([], 90, stderr=private_text),
+             "OpenCode CLI timed out after 90 seconds."),
+            (OSError(private_text), "OpenCode CLI could not start."),
+        ):
+            with self.subTest(diagnostic=diagnostic):
+                opencode.side_effect = [outcome]
+                with self.assertRaises(SystemExit) as failure:
+                    pr_review.main()
+                self.assertEqual(failure.exception.code, diagnostic)
+                self.assertFalse((self.temp / "pr-review-result.json").exists())
 
     @patch.object(pr_review, "github_request")
     def test_abandons_publication_if_pr_head_changed(self, api):
