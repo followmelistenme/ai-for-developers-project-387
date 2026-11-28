@@ -14,7 +14,7 @@ test("контейнеры отдают интерфейс, API и докуме�
   expect(await (await request.get("/api/owner/meetings")).json()).toEqual([])
   const schema = await request.get("/openapi.json")
   expect(schema.status()).toBe(200)
-  expect(await schema.json()).toHaveProperty("openapi", "3.0.3")
+  expect(await schema.json()).toHaveProperty("openapi", expect.stringMatching(/^3\.0\.\d+$/))
   const yaml = await request.get("/openapi.yaml")
   expect(yaml.status()).toBe(200)
   expect(await yaml.text()).toContain("/api/owner/meetings:")

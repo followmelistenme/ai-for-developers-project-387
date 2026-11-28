@@ -35,28 +35,33 @@ test("создание, публикация и выбор гостем сохр
 })
 
 test("одинаковые названия имеют разные ссылки, а черновик и неизвестный тип недоступны", async ({ page, request }) => {
-  const ids: string[] = []
+  const published: { id: string; durationMinutes: number }[] = []
   for (const durationMinutes of [15, 60]) {
     const response = await request.post("/api/owner/meeting-types", { data: { name: "Одинаковое название", durationMinutes } })
-    const type = await response.json() as { id: string }
-    ids.push(type.id)
-    expect((await request.post(`/api/owner/meeting-types/${type.id}/publish`)).status()).toBe(200)
+    expect(response.status()).toBe(201)
+    const { id } = await response.json() as { id: string }
+    expect((await request.post(`/api/owner/meeting-types/${id}/publish`)).status()).toBe(200)
+    published.push({ id, durationMinutes })
   }
+  expect(published[0].id).not.toBe(published[1].id)
   const draftResponse = await request.post("/api/owner/meeting-types", { data: { name: "Скрытый черновик", durationMinutes: 30 } })
+  expect(draftResponse.status()).toBe(201)
   const draft = await draftResponse.json() as { id: string }
   await page.goto("/booking")
-  await expect(page.getByRole("article", { name: "Скрытый черновик" })).toHaveCount(0)
   const links = page.getByRole("link", { name: /Подробнее/ })
-  await expect(links).toHaveCount(2)
-  for (const [index, id] of ids.entries()) {
+  await expect(links).toHaveCount(published.length)
+  await expect(page.getByRole("article", { name: "Скрытый черновик", exact: true })).toHaveCount(0)
+  for (const [index, { id }] of published.entries()) {
     await expect(links.nth(index)).toHaveAttribute("href", `/booking/${id}`)
-    await page.goto(`/booking/${id}`)
-    await page.reload()
-    await expect(page.getByRole("heading", { name: "Одинаковое название", level: 1 })).toBeVisible()
-    await expect(page.getByText(index === 0 ? "15 минут" : "60 минут", { exact: true })).toBeVisible()
-    await page.goto("/booking")
   }
-  expect(ids[0]).not.toBe(ids[1])
+  const heading = page.getByRole("heading", { name: "Одинаковое название", exact: true, level: 1 })
+  for (const { id, durationMinutes } of published) {
+    await page.goto(`/booking/${id}`)
+    await expect(heading).toBeVisible()
+    await page.reload()
+    await expect(heading).toBeVisible()
+    await expect(page.getByText(`${durationMinutes} минут`, { exact: true })).toBeVisible()
+  }
   for (const id of [draft.id, "missing"]) {
     await page.goto(`/booking/${id}`)
     await expect(page.getByRole("heading", { name: "Тип встречи недоступен", level: 1 })).toBeVisible()
