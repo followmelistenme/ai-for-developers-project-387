@@ -2,6 +2,14 @@ namespace CalendarBooking;
 
 alias DurationMinutes = 15 | 30 | 45 | 60;
 
+model MeetingTypePublicationConflict {
+  @doc("Причина отказа в публикации.")
+  message: string;
+
+  @doc("Присутствует, если в календаре уже опубликовано пять типов встреч.")
+  code?: "publication_limit_reached";
+}
+
 model MeetingTypeDeletionConflict {
   @doc("Любая встреча, включая прошедшую, запрещает удаление типа.")
   message: "Нельзя удалить тип встречи, по которому есть встречи";

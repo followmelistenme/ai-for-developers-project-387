@@ -191,7 +191,7 @@ paths:
     post:
       operationId: publishOwnerMeetingType
       summary: Опубликовать тип встречи
-      description: Публикует черновик без изменения его данных. Повтор возвращает тот же опубликованный тип без дублирования. Снятый с публикации тип опубликовать повторно нельзя (409). Тело запроса не требуется.
+      description: Публикует черновик без изменения его данных. Проверка лимита пяти опубликованных типов и публикация выполняются атомарно. Повтор возвращает тот же опубликованный тип даже при заполненном лимите. Тело запроса не требуется.
       parameters:
         - $ref: "#/components/parameters/MeetingTypeId"
       responses:
@@ -208,11 +208,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/MeetingTypeNotFoundError"
         "409":
-          description: Переход состояния типа встречи запрещён
+          description: Публикация снятого типа запрещена или все пять мест заняты. При заполненном лимите черновик сохраняется.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingTypeNotFoundError"
+                $ref: "#/components/schemas/MeetingTypePublicationConflict"
   /api/owner/meeting-types/{meetingTypeId}/withdraw:
     post:
       operationId: withdrawOwnerMeetingType
@@ -500,6 +500,20 @@ components:
         message:
           type: string
           description: Сообщение о недоступном типе встречи.
+      additionalProperties: false
+    MeetingTypePublicationConflict:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Причина отказа в публикации.
+        code:
+          type: string
+          enum:
+            - publication_limit_reached
+          description: Присутствует, если в календаре уже опубликовано пять типов встреч.
       additionalProperties: false
     ValidationError:
       type: object

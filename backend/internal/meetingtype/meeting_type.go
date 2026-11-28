@@ -6,6 +6,9 @@ import (
 	"unicode/utf8"
 )
 
+// MaxPublished is the number of meeting types a calendar can expose at once.
+const MaxPublished = 5
+
 // Status determines whether guests can view a meeting type.
 type Status string
 

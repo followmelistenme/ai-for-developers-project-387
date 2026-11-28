@@ -86,11 +86,15 @@ op deleteOwnerMeetingType(...MeetingTypeId):
 @post
 @route("/api/owner/meeting-types/{meetingTypeId}/publish")
 @summary("Опубликовать тип встречи")
-@doc("Публикует черновик без изменения его данных. Повтор возвращает тот же опубликованный тип без дублирования. Снятый с публикации тип опубликовать повторно нельзя (409). Тело запроса не требуется.")
+@doc("Публикует черновик без изменения его данных. Проверка лимита пяти опубликованных типов и публикация выполняются атомарно. Повтор возвращает тот же опубликованный тип даже при заполненном лимите. Тело запроса не требуется.")
 op publishOwnerMeetingType(...MeetingTypeId):
   | JsonResponse<200, MeetingType, "Опубликованный тип встречи">
   | MeetingTypeNotFound
-  | InvalidTypeTransition;
+  | JsonResponse<
+      409,
+      MeetingTypePublicationConflict,
+      "Публикация снятого типа запрещена или все пять мест заняты. При заполненном лимите черновик сохраняется."
+    >;
 
 @post
 @route("/api/owner/meeting-types/{meetingTypeId}/withdraw")

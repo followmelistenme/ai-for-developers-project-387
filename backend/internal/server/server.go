@@ -104,6 +104,13 @@ func toDTO(draft meetingtype.MeetingType) api.MeetingType {
 
 func (h *handler) PublishOwnerMeetingType(_ context.Context, request api.PublishOwnerMeetingTypeRequestObject) (api.PublishOwnerMeetingTypeResponseObject, error) {
 	item, err := h.calendar.Publish(request.MeetingTypeId)
+	if errors.Is(err, memory.ErrPublicationLimit) {
+		code := api.PublicationLimitReached
+		return api.PublishOwnerMeetingType409JSONResponse{
+			Code:    &code,
+			Message: fmt.Sprintf("Уже опубликовано %d типов встреч. Снимите публикацию с одного из них и попробуйте снова", meetingtype.MaxPublished),
+		}, nil
+	}
 	if errors.Is(err, memory.ErrInvalidTransition) {
 		return api.PublishOwnerMeetingType409JSONResponse{Message: "Снятый с публикации тип нельзя опубликовать повторно"}, nil
 	}
